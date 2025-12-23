@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     # External Services
     AUTH_SERVICE_URL: str = "http://localhost:8001"
     
+    # Buffer API Configuration
+    BUFFER_API_URL: str = "https://api.bufferapp.com/1"
+    BUFFER_ACCESS_TOKEN: Optional[str] = None  # Set via environment or user config
+    
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"  # json or text

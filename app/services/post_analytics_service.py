@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.post_analytics import PostAnalytics
 from app.models.scheduled_post import ScheduledPost
 from app.schemas.post_analytics import PostAnalyticsCreate, PostAnalyticsUpdate
-from app.services.buffer_service import BufferService, BufferAPIError
+from app.services.providers.provider_factory import get_provider
+from app.services.providers.base_provider import ProviderError
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +239,7 @@ class PostAnalyticsService:
     async def sync_analytics_from_buffer(
         self,
         post_id: int,
-        buffer_service: BufferService,
+        
     ) -> Optional[PostAnalytics]:
         """Sync analytics from Buffer for a post.
         
@@ -261,7 +262,7 @@ class PostAnalyticsService:
         
         try:
             # Get analytics from Buffer
-            buffer_analytics = await buffer_service.get_post_analytics(post.buffer_post_id)
+            buffer_analytics = await provider.get_post_analytics(post.buffer_post_id)
             
             # Create analytics record
             analytics_data = PostAnalyticsCreate(
@@ -282,14 +283,14 @@ class PostAnalyticsService:
             logger.info(f"Synced analytics from Buffer for post {post_id}")
             return analytics
         
-        except BufferAPIError as e:
+        except ProviderError as e:
             logger.error(f"Failed to sync analytics for post {post_id}: {e.message}")
             return None
     
     async def bulk_sync_analytics(
         self,
         user_id: int,
-        buffer_service: BufferService,
+        
         days: int = 7,
     ) -> List[PostAnalytics]:
         """Bulk sync analytics for recent posts.

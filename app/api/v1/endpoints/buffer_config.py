@@ -17,7 +17,8 @@ from app.schemas.buffer_config import (
     BufferConfigResponse,
 )
 from app.services.buffer_config_service import BufferConfigService
-from app.services.buffer_service import BufferService, BufferAPIError
+from app.services.providers.provider_factory import get_provider
+from app.services.providers.base_provider import ProviderError
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +169,7 @@ async def get_buffer_profiles(
     try:
         profiles = await buffer_service.get_profiles()
         return profiles
-    except BufferAPIError as e:
+    except ProviderError as e:
         logger.error(f"Failed to get Buffer profiles: {e.message}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

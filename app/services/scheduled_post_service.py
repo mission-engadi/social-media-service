@@ -14,7 +14,8 @@ from sqlalchemy.orm import selectinload
 from app.models.scheduled_post import ScheduledPost, PostStatus, PostType
 from app.models.social_account import SocialAccount
 from app.schemas.scheduled_post import ScheduledPostCreate, ScheduledPostUpdate
-from app.services.buffer_service import BufferService, BufferAPIError
+from app.services.providers.provider_factory import get_provider
+from app.services.providers.base_provider import ProviderError
 
 logger = logging.getLogger(__name__)
 
@@ -203,16 +204,14 @@ class ScheduledPostService:
         logger.info(f"Deleted scheduled post {post_id}")
         return True
     
-    async def schedule_with_buffer(
+    async def schedule_with_provider(
         self,
         post_id: int,
-        buffer_service: BufferService,
     ) -> Optional[ScheduledPost]:
-        """Schedule a post via Buffer.
+        """Schedule a post via social media provider.
         
         Args:
             post_id: Post ID
-            buffer_service: Buffer service instance
         
         Returns:
             Updated post or None
@@ -222,7 +221,10 @@ class ScheduledPostService:
             return None
         
         try:
-            # Get Buffer profile IDs from associated accounts
+            # Get provider instance
+            provider = get_provider()
+            
+            # Get profile IDs from associated accounts
             profile_ids = [
                 acc.buffer_profile_id
                 for acc in post.social_accounts
@@ -230,29 +232,28 @@ class ScheduledPostService:
             ]
             
             if not profile_ids:
-                logger.error(f"No Buffer profiles found for post {post_id}")
+                logger.error(f"No profiles found for post {post_id}")
                 return None
             
             # Prepare media data
             media = None
             if post.media_urls:
-                media = {'photo': post.media_urls[0]}  # Buffer handles first image
+                media = {'photos': post.media_urls}  # Use photos array for compatibility
             
-            # Create post in Buffer
-            buffer_response = await buffer_service.create_post(
+            # Create post via provider
+            provider_response = await provider.create_post(
                 profile_ids=profile_ids,
                 text=post.content,
                 media=media,
                 scheduled_at=post.scheduled_time,
-                now=False,
             )
             
             # Update post with Buffer IDs
-            post.buffer_post_id = buffer_response.get('updates', [{}])[0].get('id')
+            post.buffer_post_id = provider_response.get('updates', [{}])[0].get('id')
             post.status = PostStatus.SCHEDULED
             post.metadata = {
                 **post.metadata,
-                'buffer_response': buffer_response,
+                'provider_response': provider_response,
                 'scheduled_at': datetime.utcnow().isoformat(),
             }
             
@@ -262,7 +263,7 @@ class ScheduledPostService:
             logger.info(f"Scheduled post {post_id} via Buffer")
             return post
         
-        except BufferAPIError as e:
+        except ProviderError as e:
             logger.error(f"Failed to schedule post {post_id} via Buffer: {e.message}")
             post.status = PostStatus.FAILED
             post.metadata = {
@@ -276,7 +277,7 @@ class ScheduledPostService:
     async def publish_now(
         self,
         post_id: int,
-        buffer_service: BufferService,
+        
     ) -> Optional[ScheduledPost]:
         """Publish a post immediately via Buffer.
         
@@ -309,7 +310,7 @@ class ScheduledPostService:
                 media = {'photo': post.media_urls[0]}
             
             # Publish immediately
-            buffer_response = await buffer_service.create_post(
+            provider_response = await provider.create_post(
                 profile_ids=profile_ids,
                 text=post.content,
                 media=media,
@@ -317,12 +318,12 @@ class ScheduledPostService:
             )
             
             # Update post
-            post.buffer_post_id = buffer_response.get('updates', [{}])[0].get('id')
+            post.buffer_post_id = provider_response.get('updates', [{}])[0].get('id')
             post.status = PostStatus.PUBLISHED
             post.published_at = datetime.utcnow()
             post.metadata = {
                 **post.metadata,
-                'buffer_response': buffer_response,
+                'provider_response': provider_response,
                 'published_at': datetime.utcnow().isoformat(),
             }
             
@@ -332,7 +333,7 @@ class ScheduledPostService:
             logger.info(f"Published post {post_id} immediately")
             return post
         
-        except BufferAPIError as e:
+        except ProviderError as e:
             logger.error(f"Failed to publish post {post_id}: {e.message}")
             post.status = PostStatus.FAILED
             await self.db.commit()
@@ -341,7 +342,7 @@ class ScheduledPostService:
     async def cancel_scheduled_post(
         self,
         post_id: int,
-        buffer_service: BufferService,
+        
     ) -> Optional[ScheduledPost]:
         """Cancel a scheduled post in Buffer.
         
@@ -358,7 +359,7 @@ class ScheduledPostService:
         
         try:
             # Delete from Buffer
-            await buffer_service.delete_post(post.buffer_post_id)
+            await provider.delete_post(post.buffer_post_id)
             
             # Update post status
             post.status = PostStatus.CANCELLED
@@ -373,7 +374,7 @@ class ScheduledPostService:
             logger.info(f"Cancelled scheduled post {post_id}")
             return post
         
-        except BufferAPIError as e:
+        except ProviderError as e:
             logger.error(f"Failed to cancel post {post_id}: {e.message}")
             return post
     
@@ -410,7 +411,7 @@ class ScheduledPostService:
         self,
         user_id: int,
         posts_data: List[ScheduledPostCreate],
-        buffer_service: Optional[BufferService] = None,
+        
     ) -> List[ScheduledPost]:
         """Create and optionally schedule multiple posts.
         

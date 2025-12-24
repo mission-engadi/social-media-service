@@ -1,7 +1,163 @@
-# Buffer Integration Guide
+# Social Media Providers Guide
 
 ## Overview
-This service integrates with Buffer API to schedule and manage social media posts across multiple platforms.
+
+The Social Media Service supports multiple social media management providers through a flexible provider architecture. This guide covers setup and usage for all supported providers.
+
+## Supported Providers
+
+### 1. Ayrshare (Default - Recommended)
+### 2. Buffer (Alternative)
+
+---
+
+# Ayrshare Integration (Default Provider)
+
+## Overview
+Ayrshare is the default social media management provider for this service. It provides white-label reselling capabilities, supports 13+ platforms, and offers comprehensive analytics.
+
+## Why Ayrshare?
+- \u2705 **13+ Platforms**: Facebook, Twitter, Instagram, LinkedIn, TikTok, YouTube, Pinterest, Reddit, Telegram, Threads, Bluesky, Google Business, Snapchat
+- \u2705 **White-Label Reselling**: Build and resell your own social media management solution
+- \u2705 **Revenue Model**: Business Plan at $499/month with reselling support
+- \u2705 **Advanced Features**: Webhooks, multi-user accounts, comprehensive analytics
+- \u2705 **Better API**: More reliable, higher rate limits, better documentation
+
+## Prerequisites
+1. Ayrshare account (https://www.ayrshare.com)
+2. Business Plan subscription ($499/month for white-label features)
+3. Ayrshare API key
+
+## Setup Steps
+
+### Step 1: Create Ayrshare Account
+
+1. Visit https://www.ayrshare.com
+2. Sign up for Business Plan
+3. Complete account setup
+4. Go to Dashboard → API Keys
+5. Generate a new API key
+6. Copy the API key securely
+
+### Step 2: Connect Social Media Accounts
+
+1. Log in to Ayrshare dashboard
+2. Click **Add Social Account**
+3. Authenticate with each platform:
+   - Facebook, Twitter, Instagram, LinkedIn
+   - TikTok, YouTube, Pinterest, Reddit
+   - Telegram, Threads, Bluesky, etc.
+4. Note the profile IDs for each account
+
+### Step 3: Configure Service
+
+Add to `.env` file:
+
+```bash
+# Provider Selection
+SOCIAL_MEDIA_PROVIDER=ayrshare
+
+# Ayrshare Configuration
+AYRSHARE_API_URL=https://app.ayrshare.com/api
+AYRSHARE_API_KEY=your_ayrshare_api_key_here
+```
+
+### Step 4: Test Connection
+
+```bash
+# Start the service
+./start.sh
+
+# Test Ayrshare connection
+curl -X GET "http://localhost:8007/api/v1/social-accounts" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+## API Usage Examples
+
+### Get Connected Profiles
+
+```bash
+curl -X GET "http://localhost:8007/api/v1/social-accounts" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+### Create a Post
+
+```bash
+curl -X POST "http://localhost:8007/api/v1/posts" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "Check out our new feature! #innovation",
+    "media_urls": ["https://blog-static.userpilot.com/blog/wp-content/uploads/2023/03/10-effective-new-feature-announcement-examples-how-to-write-one_6c5f1f10cba1bbc799eb6345bbef5ff6_2000.png
+    "platforms": ["facebook", "twitter", "linkedin"],
+    "scheduled_time": "2025-01-15T10:00:00Z"
+  }'
+```
+
+### Get Post Analytics
+
+```bash
+curl -X GET "http://localhost:8007/api/v1/analytics/{post_id}" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+## Ayrshare-Specific Features
+
+### Webhooks
+
+Configure webhooks to receive real-time notifications:
+
+```bash
+curl -X POST "https://app.ayrshare.com/api/webhooks" \
+  -H "Authorization: Bearer YOUR_AYRSHARE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://yourdomain.com/webhooks/ayrshare",
+    "events": ["post.published", "post.failed", "analytics.updated"]
+  }'
+```
+
+### Multi-User Support
+
+Ayrshare supports multi-user accounts with separate API keys:
+
+1. Go to Dashboard → Team
+2. Invite team members
+3. Assign roles and permissions
+4. Each user gets their own API key
+
+### Platform-Specific Content
+
+```bash
+curl -X POST "http://localhost:8007/api/v1/posts" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "platforms": {
+      "facebook": {
+        "post": "Check out our new feature!",
+        "link": "https://example.com"
+      },
+      "twitter": {
+        "post": "New feature alert! \ud83d\ude80 #innovation",
+        "mediaUrls": ["https://octopuscrm.io/wp-content/uploads/2023/07/Thumbnail-How-to-Announce-New-Product-Features-Using-Email-Marketing.webp
+      },
+      "instagram": {
+        "post": "New feature \u2728",
+        "mediaUrls": ["https://cdn.prod.website-files.com/685d3f27e667cdf05fe197f8/685d3f27e667cdf05fe1b16c_6733550da114276f65c927b6_670013740c890997004597b1_618025b83ab97db87bb355e1_Venmo%252525202.jpeg
+      }
+    }
+  }'
+```
+
+---
+
+# Buffer Integration (Alternative Provider)
+
+## Overview
+Buffer is an alternative social media management provider. While it supports fewer platforms than Ayrshare, it's a solid choice for basic scheduling needs.
 
 ## Prerequisites
 1. Buffer account (https://buffer.com)

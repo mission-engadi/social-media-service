@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.social_account import SocialAccount, SocialPlatform, AccountStatus
 from app.schemas.social_account import SocialAccountCreate, SocialAccountUpdate
-from app.services.buffer_service import BufferService, BufferAPIError
+from app.services.providers.provider_factory import get_provider
+from app.services.providers.base_provider import ProviderError
 
 logger = logging.getLogger(__name__)
 
@@ -153,16 +154,14 @@ class SocialAccountService:
         logger.info(f"Deleted social account {account_id}")
         return True
     
-    async def sync_with_buffer(
+    async def sync_with_provider(
         self,
         account_id: int,
-        buffer_service: BufferService,
     ) -> Optional[SocialAccount]:
-        """Sync account with Buffer profile.
+        """Sync account with social media provider profile.
         
         Args:
             account_id: Account ID
-            buffer_service: Buffer service instance
         
         Returns:
             Updated account or None
@@ -172,27 +171,38 @@ class SocialAccountService:
             return None
         
         try:
-            # Get profile from Buffer
-            profile = await buffer_service.get_profile(account.buffer_profile_id)
+            # Get provider instance
+            provider = get_provider()
             
-            # Update account with Buffer profile data
+            # Get profile from provider (using Buffer's get_profile if available)
+            if hasattr(provider, 'get_profile'):
+                profile = await provider.get_profile(account.buffer_profile_id)
+            else:
+                # Fallback: get all profiles and find the matching one
+                profiles = await provider.get_profiles()
+                profile = next((p for p in profiles if p.get('id') == account.buffer_profile_id), None)
+            
+            if not profile:
+                return None
+            
+            # Update account with provider profile data
             account.profile_data = {
                 **account.profile_data,
-                'buffer_sync': {
+                'provider_sync': {
                     'synced_at': datetime.utcnow().isoformat(),
                     'profile_data': profile,
                 }
             }
-            account.status = AccountStatus.ACTIVE if profile.get('default', False) else account.status
+            account.status = AccountStatus.ACTIVE if profile.get('is_active', True) else account.status
             
             await self.db.commit()
             await self.db.refresh(account)
             
-            logger.info(f"Synced account {account_id} with Buffer")
+            logger.info(f"Synced account {account_id} with provider")
             return account
         
-        except BufferAPIError as e:
-            logger.error(f"Failed to sync account {account_id} with Buffer: {e.message}")
+        except ProviderError as e:
+            logger.error(f"Failed to sync account {account_id} with provider: {e.message}")
             account.status = AccountStatus.ERROR
             await self.db.commit()
             await self.db.refresh(account)
@@ -201,13 +211,11 @@ class SocialAccountService:
     async def test_connection(
         self,
         account_id: int,
-        buffer_service: BufferService,
     ) -> bool:
-        """Test connection to social account via Buffer.
+        """Test connection to social account via provider.
         
         Args:
             account_id: Account ID
-            buffer_service: Buffer service instance
         
         Returns:
             True if connection successful
@@ -217,7 +225,7 @@ class SocialAccountService:
             return False
         
         try:
-            profile = await buffer_service.get_profile(account.buffer_profile_id)
-            return profile is not None
-        except BufferAPIError:
+            provider = get_provider()
+            return await provider.test_connection()
+        except ProviderError:
             return False

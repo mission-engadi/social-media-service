@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.buffer_config import BufferConfig
 from app.schemas.buffer_config import BufferConfigCreate, BufferConfigUpdate
-from app.services.buffer_service import BufferService
+from app.services.providers.provider_factory import get_provider
+from app.services.providers.base_provider import ProviderError
 
 logger = logging.getLogger(__name__)
 

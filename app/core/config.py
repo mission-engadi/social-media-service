@@ -70,7 +70,15 @@ class Settings(BaseSettings):
     # External Services
     AUTH_SERVICE_URL: str = "http://localhost:8001"
     
-    # Buffer API Configuration
+    # Social Media Provider Configuration
+    # Supported providers: 'ayrshare', 'buffer'
+    SOCIAL_MEDIA_PROVIDER: str = "ayrshare"  # Default provider
+    
+    # Ayrshare API Configuration (Default Provider)
+    AYRSHARE_API_URL: str = "https://app.ayrshare.com/api"
+    AYRSHARE_API_KEY: Optional[str] = None  # Set via environment
+    
+    # Buffer API Configuration (Alternative Provider)
     BUFFER_API_URL: str = "https://api.bufferapp.com/1"
     BUFFER_ACCESS_TOKEN: Optional[str] = None  # Set via environment or user config
     
